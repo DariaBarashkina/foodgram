@@ -9,8 +9,6 @@ services:
     env_file:
       - .env
     restart: always
-    networks:
-      - foodgram-network
 
   backend:
     build: ../backend
@@ -23,22 +21,16 @@ services:
     depends_on:
       - db
     restart: always
-    networks:
-      - foodgram-network
 
-  frontend:
+  frontend-builder:
     build: ../frontend
-    container_name: foodgram-frontend
+    container_name: foodgram-frontend-builder
     volumes:
-      - frontend_build:/app/build
-    depends_on:
-      - backend
-    restart: always
-    networks:
-      - foodgram-network
+      - frontend_build:/result
+    restart: "no"
 
   nginx:
-    image: nginx:1.21-alpine
+    image: nginx:1.25-alpine
     container_name: foodgram-nginx
     ports:
       - "80:80"
@@ -48,21 +40,14 @@ services:
       - ../docs/:/usr/share/nginx/html/api/docs/
       - static_volume:/static
       - media_volume:/media
-      - frontend_build:/usr/share/nginx/html/
+      - frontend_build:/usr/share/nginx/html
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
-      - frontend
     restart: always
-    networks:
-      - foodgram-network
 
 volumes:
   postgres_data:
   static_volume:
   media_volume:
   frontend_build:
-
-networks:
-  foodgram-network:
-    driver: bridge
