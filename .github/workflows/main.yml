@@ -86,25 +86,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_ed25519 <<< "${{ secrets.SSH_PASSPHRASE }}"
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
       
       - name: Copy files to server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} "mkdir -p ~/foodgram"
-          scp -o StrictHostKeyChecking=no infra/docker-compose.production.yml ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          scp -o StrictHostKeyChecking=no infra/nginx.conf ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          scp -o StrictHostKeyChecking=no infra/.env.example ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/docker-compose.production.yml ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/nginx.conf ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/.env.example ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
       
       - name: Deploy with Docker Compose
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
             cd ~/foodgram
             
             if [ ! -f .env ]; then
