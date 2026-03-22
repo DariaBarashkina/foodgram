@@ -1,142 +1,50 @@
-name: Foodgram Workflow
+services:
+  db:
+    image: postgres:13-alpine
+    container_name: foodgram-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - .env
+    restart: always
 
-on:
-  push:
+  backend:
+    image: barashkina/foodgram-backend:latest
+    container_name: foodgram-backend
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: always
 
-jobs:
-  lint_backend:
-    name: Lint backend with flake8
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8==6.0.0
-          pip install -r ./backend/requirements.txt
-      
-      - name: Lint with flake8
-        run: |
-          cd backend
-          flake8 . --count --show-source --statistics --max-line-length=79
+  frontend:
+    image: barashkina/foodgram-frontend:latest
+    container_name: foodgram-frontend
+    volumes:
+      - static_volume:/static
+    command: sh -c "cp -r /app/build/* /static/ && chmod -R 755 /static/"
+    depends_on:
+      - backend
+    restart: "no"
 
-  build_backend:
-    name: Build and push backend image to Docker Hub
-    runs-on: ubuntu-latest
-    needs: lint_backend
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend/
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-backend:latest
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: foodgram-nginx
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/static
+      - media_volume:/media
+    depends_on:
+      - backend
+    restart: always
 
-  build_frontend:
-    name: Build and push frontend image to Docker Hub
-    runs-on: ubuntu-latest
-    needs: lint_backend
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend/
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:latest
-
-  deploy:
-    name: Deploy to server
-    runs-on: ubuntu-latest
-    needs: [build_backend, build_frontend]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Install sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
-      
-      - name: Copy files to server
-        run: |
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/docker-compose.production.yml ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/nginx.conf ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no infra/.env.example ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-      
-      - name: Deploy with Docker Compose
-        run: |
-          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
-            cd ~/foodgram
-            
-            if [ ! -f .env ]; then
-              cp .env.example .env
-              echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
-              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-            fi
-            
-            sudo docker compose -f docker-compose.production.yml pull
-            sudo docker compose -f docker-compose.production.yml down
-            sudo docker compose -f docker-compose.production.yml up -d
-            sleep 10
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
-
-  send_message:
-    name: Send Telegram notification
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: success()
-    steps:
-      - name: Send Telegram message
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_TO }}
-          token: ${{ secrets.TELEGRAM_TOKEN }}
-          message: |
-            ✅ **Деплой Foodgram успешно выполнен!**
-            
-            📝 **Информация о коммите:**
-            • Автор: ${{ github.actor }}
-            • Ветка: ${{ github.ref_name }}
-            • Коммит: ${{ github.event.commits[0].message }}
-            
-            🔗 **Ссылка на коммит:**
-            https://github.com/${{ github.repository }}/commit/${{ github.sha }}
-            
-            🕐 **Время:** ${{ github.event.head_commit.timestamp }}
-            
-            🌐 **Проект:** https://foodgram.myftp.org
-            📚 **API:** https://foodgram.myftp.org/api/
-            🔧 **Админка:** https://foodgram.myftp.org/admin/
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
