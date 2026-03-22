@@ -96,6 +96,7 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "infra/docker-compose.production.yml"
           target: "foodgram"
       
@@ -105,17 +106,19 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "infra/nginx.conf"
           target: "foodgram"
       
-      - name: Copy .env to server
+      - name: Copy .env.example to server
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "infra/.env"
-          target: "foodgram"
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          source: "infra/.env.example"
+          target: "foodgram/infra/.env.example"
       
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@master
@@ -123,14 +126,24 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
             cd foodgram/infra
+            
+            # Создаем .env из .env.example если его нет
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
+              echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> .env
+            fi
+            
             sudo docker compose -f docker-compose.production.yml pull
             sudo docker compose -f docker-compose.production.yml down
             sudo docker compose -f docker-compose.production.yml up -d
             sleep 10
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
+            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py load_ingredients
 
   send_message:
     name: Send Telegram notification
