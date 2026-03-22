@@ -77,48 +77,47 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:latest
 
-  deploy:
-    name: Deploy to server
-    runs-on: ubuntu-latest
-    needs: [build_backend, build_frontend]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+deploy:
+  name: Deploy to server
+  runs-on: ubuntu-latest
+  needs: [build_backend, build_frontend]
+  if: github.ref == 'refs/heads/main'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        eval "$(ssh-agent -s)"
+        echo "${{ secrets.SSH_PASSPHRASE }}" | ssh-add ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
       
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          eval "$(ssh-agent -s)"
-          ssh-add ~/.ssh/id_rsa <<< "${{ secrets.SSH_PASSPHRASE }}"
+    - name: Copy files to server
+      run: |
+        scp -o StrictHostKeyChecking=no infra/docker-compose.production.yml ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
+        scp -o StrictHostKeyChecking=no infra/nginx.conf ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
+        scp -o StrictHostKeyChecking=no infra/.env.example ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
       
-      - name: Copy files to server
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} "mkdir -p ~/foodgram"
-          scp -o StrictHostKeyChecking=no infra/docker-compose.production.yml ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          scp -o StrictHostKeyChecking=no infra/nginx.conf ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-          scp -o StrictHostKeyChecking=no infra/.env.example ${{ secrets.USER }}@${{ secrets.HOST }}:~/foodgram/
-      
-      - name: Deploy with Docker Compose
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
-            cd ~/foodgram
-            
-            if [ ! -f .env ]; then
-              cp .env.example .env
-              echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
-              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-            fi
-            
-            sudo docker compose -f docker-compose.production.yml pull
-            sudo docker compose -f docker-compose.production.yml down
-            sudo docker compose -f docker-compose.production.yml up -d
-            sleep 10
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
-          EOF
+    - name: Deploy with Docker Compose
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+          cd ~/foodgram
+          
+          if [ ! -f .env ]; then
+            cp .env.example .env
+            echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          fi
+          
+          sudo docker compose -f docker-compose.production.yml pull
+          sudo docker compose -f docker-compose.production.yml down
+          sudo docker compose -f docker-compose.production.yml up -d
+          sleep 10
+          sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
+          sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
 
   send_message:
     name: Send Telegram notification
