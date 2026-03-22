@@ -22,7 +22,6 @@ from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
 from .pagination import CustomPagination
-from .permissions import IsAuthenticatedOrReadOnly
 from .serializers import (
     AvatarSerializer,
     CustomUserCreateSerializer,
