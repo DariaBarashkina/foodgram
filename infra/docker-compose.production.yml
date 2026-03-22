@@ -51,8 +51,6 @@ jobs:
           context: ./backend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-backend:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-backend:buildcache,mode=max
 
   build_frontend:
     name: Build and push frontend image to Docker Hub
@@ -78,8 +76,6 @@ jobs:
           context: ./frontend/
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:buildcache,mode=max
 
   deploy:
     name: Deploy to server
@@ -98,7 +94,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "infra/docker-compose.production.yml"
-          target: "foodgram"
+          target: "~/foodgram/"
       
       - name: Copy nginx.conf to server
         uses: appleboy/scp-action@master
@@ -108,7 +104,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "infra/nginx.conf"
-          target: "foodgram"
+          target: "~/foodgram/"
       
       - name: Copy .env.example to server
         uses: appleboy/scp-action@master
@@ -118,7 +114,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           source: "infra/.env.example"
-          target: "foodgram/infra/.env.example"
+          target: "~/foodgram/"
       
       - name: Deploy with Docker Compose
         uses: appleboy/ssh-action@master
@@ -128,13 +124,12 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           passphrase: ${{ secrets.SSH_PASSPHRASE }}
           script: |
-            cd foodgram/infra
+            cd ~/foodgram
             
             if [ ! -f .env ]; then
               cp .env.example .env
-              echo "" >> .env
-              echo "# Docker" >> .env
               echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
+              echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
             fi
             
             sudo docker compose -f docker-compose.production.yml pull
