@@ -1,5 +1,7 @@
 # Foodgram — социальная сеть для обмена рецептами
 
+[![Foodgram Workflow](https://github.com/DariaBarashkina/foodgram/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/DariaBarashkina/foodgram/actions/workflows/main.yml)
+
 ## 📋 О проекте
 
 Foodgram — это веб-приложение, где пользователи могут публиковать свои рецепты, добавлять чужие рецепты в избранное и подписываться на публикации других авторов. Зарегистрированным пользователям также доступен сервис «Список покупок», который позволяет создавать список продуктов для приготовления выбранных блюд.
