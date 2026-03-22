@@ -11,10 +11,8 @@ class User(AbstractUser):
     last_name = models.CharField("last name", max_length=150)
     password = models.CharField("password", max_length=150)
     avatar = models.ImageField(
-        "avatar",
-        upload_to="users/",
-        null=True,
-        blank=True)
+        "avatar", upload_to="users/", null=True, blank=True
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username", "first_name", "last_name"]
@@ -41,7 +39,8 @@ class Subscription(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name="following",
-        verbose_name="Автор")
+        verbose_name="Автор",
+    )
 
     class Meta:
         verbose_name = "Подписка"

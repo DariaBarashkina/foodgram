@@ -3,7 +3,6 @@ import os
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-
 from recipes.models import Ingredient
 
 
@@ -11,7 +10,9 @@ class Command(BaseCommand):
     help = "Load ingredients from CSV file"
 
     def handle(self, *args, **kwargs):
-        csv_path = os.path.join(settings.BASE_DIR.parent, "data", "ingredients.csv")
+        csv_path = os.path.join(
+            settings.BASE_DIR.parent, "data", "ingredients.csv"
+        )
 
         if not os.path.exists(csv_path):
             self.stdout.write(self.style.ERROR(f"File not found: {csv_path}"))
@@ -28,4 +29,6 @@ class Command(BaseCommand):
                         name=name, measurement_unit=measurement_unit
                     )
 
-        self.stdout.write(self.style.SUCCESS("Successfully loaded ingredients"))
+        self.stdout.write(
+            self.style.SUCCESS("Successfully loaded ingredients")
+        )

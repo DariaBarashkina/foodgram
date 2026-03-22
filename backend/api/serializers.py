@@ -3,10 +3,15 @@ import base64
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from djoser.serializers import UserCreateSerializer, UserSerializer
+from recipes.models import (
+    Favorite,
+    Ingredient,
+    IngredientInRecipe,
+    Recipe,
+    ShoppingCart,
+    Tag,
+)
 from rest_framework import serializers
-
-from recipes.models import (Favorite, Ingredient, IngredientInRecipe, Recipe,
-                            ShoppingCart, Tag)
 from users.models import Subscription, User
 
 
@@ -32,7 +37,8 @@ class CustomUserCreateSerializer(UserCreateSerializer):
             "username",
             "first_name",
             "last_name",
-            "password")
+            "password",
+        )
 
 
 class CustomUserSerializer(UserSerializer):
@@ -58,7 +64,8 @@ class CustomUserSerializer(UserSerializer):
         if not request or request.user.is_anonymous:
             return False
         return Subscription.objects.filter(
-            user=request.user, author=obj).exists()
+            user=request.user, author=obj
+        ).exists()
 
     def get_avatar(self, obj):
         if obj.avatar and hasattr(obj.avatar, "url"):
@@ -83,8 +90,10 @@ class SubscriptionSerializer(CustomUserSerializer):
     recipes_count = serializers.SerializerMethodField()
 
     class Meta(CustomUserSerializer.Meta):
-        fields = CustomUserSerializer.Meta.fields + \
-            ("recipes", "recipes_count")
+        fields = CustomUserSerializer.Meta.fields + (
+            "recipes",
+            "recipes_count",
+        )
 
     def get_recipes(self, obj):
         request = self.context.get("request")
@@ -123,7 +132,8 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="ingredient.id")
     name = serializers.ReadOnlyField(source="ingredient.name")
     measurement_unit = serializers.ReadOnlyField(
-        source="ingredient.measurement_unit")
+        source="ingredient.measurement_unit"
+    )
 
     class Meta:
         model = IngredientInRecipe
@@ -147,7 +157,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     author = CustomUserSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     ingredients = IngredientInRecipeSerializer(
-        many=True, source="ingredient_in_recipe")
+        many=True, source="ingredient_in_recipe"
+    )
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
@@ -178,7 +189,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         if not request or request.user.is_anonymous:
             return False
         return ShoppingCart.objects.filter(
-            user=request.user, recipe=obj).exists()
+            user=request.user, recipe=obj
+        ).exists()
 
     def get_image(self, obj):
         if obj.image and hasattr(obj.image, "url"):
@@ -191,7 +203,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
     ingredients = IngredientInRecipeCreateSerializer(many=True)
     tags = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Tag.objects.all())
+        many=True, queryset=Tag.objects.all()
+    )
     image = Base64ImageField()
     author = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -211,11 +224,13 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     def validate_ingredients(self, value):
         if not value:
             raise serializers.ValidationError(
-                "Нужно указать хотя бы один ингредиент")
+                "Нужно указать хотя бы один ингредиент"
+            )
         ingredients = [item["id"] for item in value]
         if len(ingredients) != len(set(ingredients)):
             raise serializers.ValidationError(
-                "Ингредиенты не должны повторяться")
+                "Ингредиенты не должны повторяться"
+            )
         return value
 
     def validate_tags(self, value):
@@ -229,7 +244,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         ingredient_objects = []
         for ingredient_data in ingredients:
             ingredient = get_object_or_404(
-                Ingredient, id=ingredient_data["id"])
+                Ingredient, id=ingredient_data["id"]
+            )
             ingredient_objects.append(
                 IngredientInRecipe(
                     recipe=recipe,

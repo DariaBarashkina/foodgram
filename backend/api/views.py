@@ -2,24 +2,39 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django_filters.rest_framework import DjangoFilterBackend
+from recipes.models import (
+    Favorite,
+    Ingredient,
+    IngredientInRecipe,
+    Recipe,
+    ShoppingCart,
+    Tag,
+)
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import (AllowAny, IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
+from rest_framework.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
-
-from recipes.models import (Favorite, Ingredient, IngredientInRecipe, Recipe,
-                            ShoppingCart, Tag)
 from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
 from .pagination import CustomPagination
 from .permissions import IsAuthorOrReadOnly
-from .serializers import (AvatarSerializer, CustomUserCreateSerializer,
-                          CustomUserSerializer, FavoriteSerializer,
-                          IngredientSerializer, RecipeCreateSerializer,
-                          RecipeSerializer, ShoppingCartSerializer,
-                          SubscriptionSerializer, TagSerializer)
+from .serializers import (
+    AvatarSerializer,
+    CustomUserCreateSerializer,
+    CustomUserSerializer,
+    FavoriteSerializer,
+    IngredientSerializer,
+    RecipeCreateSerializer,
+    RecipeSerializer,
+    ShoppingCartSerializer,
+    SubscriptionSerializer,
+    TagSerializer,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -38,8 +53,9 @@ class UserViewSet(viewsets.ModelViewSet):
             return (AllowAny(),)
         return super().get_permissions()
 
-    @action(detail=False, methods=("get",),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=False, methods=("get",), permission_classes=(IsAuthenticated,)
+    )
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
@@ -65,8 +81,11 @@ class UserViewSet(viewsets.ModelViewSet):
                 request.user.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=("post", "delete"),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=True,
+        methods=("post", "delete"),
+        permission_classes=(IsAuthenticated,),
+    )
     def subscribe(self, request, pk=None):
         author = get_object_or_404(User, pk=pk)
         if request.method == "POST":
@@ -84,7 +103,8 @@ class UserViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             serializer = SubscriptionSerializer(
-                author, context={"request": request})
+                author, context={"request": request}
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         elif request.method == "DELETE":
             deleted = Subscription.objects.filter(
@@ -97,8 +117,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=False, methods=("get",),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=False, methods=("get",), permission_classes=(IsAuthenticated,)
+    )
     def subscriptions(self, request):
         authors = User.objects.filter(following__user=request.user)
         page = self.paginate_queryset(authors)
@@ -145,8 +166,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=("post", "delete"),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=True,
+        methods=("post", "delete"),
+        permission_classes=(IsAuthenticated,),
+    )
     def favorite(self, request, pk=None):
         recipe = self.get_object()
         if request.method == "POST":
@@ -168,8 +192,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=("post", "delete"),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=True,
+        methods=("post", "delete"),
+        permission_classes=(IsAuthenticated,),
+    )
     def shopping_cart(self, request, pk=None):
         recipe = self.get_object()
         if request.method == "POST":
@@ -197,15 +224,18 @@ class RecipeViewSet(viewsets.ModelViewSet):
         link = request.build_absolute_uri(f"/recipes/{recipe.id}/")
         return Response({"short_link": link, "url": link, "link": link})
 
-    @action(detail=False, methods=("get",),
-            permission_classes=(IsAuthenticated,))
+    @action(
+        detail=False, methods=("get",), permission_classes=(IsAuthenticated,)
+    )
     def download_shopping_cart(self, request):
         ingredients = (
             IngredientInRecipe.objects.filter(
-                recipe__shopping_cart__user=request.user) .values(
-                "ingredient__name",
-                "ingredient__measurement_unit") .annotate(
-                total=Sum("amount")) .order_by("ingredient__name"))
+                recipe__shopping_cart__user=request.user
+            )
+            .values("ingredient__name", "ingredient__measurement_unit")
+            .annotate(total=Sum("amount"))
+            .order_by("ingredient__name")
+        )
         shopping_list = ["Список покупок:\n"]
         for ingredient in ingredients:
             name = ingredient["ingredient__name"]
@@ -213,9 +243,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             total = ingredient["total"]
             shopping_list.append(f"{name} ({unit}) — {total}\n")
         response = HttpResponse(shopping_list, content_type="text/plain")
-        response[
-            "Content-Disposition"
-        ] = 'attachment; filename="shopping_list.txt"'
+        response["Content-Disposition"] = (
+            'attachment; filename="shopping_list.txt"'
+        )
         return response
 
 
