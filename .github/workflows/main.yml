@@ -130,11 +130,11 @@ jobs:
           script: |
             cd foodgram/infra
             
-            # Создаем .env из .env.example если его нет
             if [ ! -f .env ]; then
               cp .env.example .env
+              echo "" >> .env
+              echo "# Docker" >> .env
               echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
-              echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> .env
             fi
             
             sudo docker compose -f docker-compose.production.yml pull
@@ -143,7 +143,6 @@ jobs:
             sleep 10
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py load_ingredients
 
   send_message:
     name: Send Telegram notification
