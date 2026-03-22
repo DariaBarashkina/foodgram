@@ -26,7 +26,13 @@ class CustomUserCreateSerializer(UserCreateSerializer):
 
     class Meta(UserCreateSerializer.Meta):
         model = User
-        fields = ("email", "id", "username", "first_name", "last_name", "password")
+        fields = (
+            "email",
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "password")
 
 
 class CustomUserSerializer(UserSerializer):
@@ -51,7 +57,8 @@ class CustomUserSerializer(UserSerializer):
         request = self.context.get("request")
         if not request or request.user.is_anonymous:
             return False
-        return Subscription.objects.filter(user=request.user, author=obj).exists()
+        return Subscription.objects.filter(
+            user=request.user, author=obj).exists()
 
     def get_avatar(self, obj):
         if obj.avatar and hasattr(obj.avatar, "url"):
@@ -76,7 +83,8 @@ class SubscriptionSerializer(CustomUserSerializer):
     recipes_count = serializers.SerializerMethodField()
 
     class Meta(CustomUserSerializer.Meta):
-        fields = CustomUserSerializer.Meta.fields + ("recipes", "recipes_count")
+        fields = CustomUserSerializer.Meta.fields + \
+            ("recipes", "recipes_count")
 
     def get_recipes(self, obj):
         request = self.context.get("request")
@@ -114,7 +122,8 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
 
     id = serializers.IntegerField(source="ingredient.id")
     name = serializers.ReadOnlyField(source="ingredient.name")
-    measurement_unit = serializers.ReadOnlyField(source="ingredient.measurement_unit")
+    measurement_unit = serializers.ReadOnlyField(
+        source="ingredient.measurement_unit")
 
     class Meta:
         model = IngredientInRecipe
@@ -137,7 +146,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     author = CustomUserSerializer(read_only=True)
     tags = TagSerializer(many=True, read_only=True)
-    ingredients = IngredientInRecipeSerializer(many=True, source="ingredient_in_recipe")
+    ingredients = IngredientInRecipeSerializer(
+        many=True, source="ingredient_in_recipe")
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
@@ -167,7 +177,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or request.user.is_anonymous:
             return False
-        return ShoppingCart.objects.filter(user=request.user, recipe=obj).exists()
+        return ShoppingCart.objects.filter(
+            user=request.user, recipe=obj).exists()
 
     def get_image(self, obj):
         if obj.image and hasattr(obj.image, "url"):
@@ -179,7 +190,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания/обновления рецептов"""
 
     ingredients = IngredientInRecipeCreateSerializer(many=True)
-    tags = serializers.PrimaryKeyRelatedField(many=True, queryset=Tag.objects.all())
+    tags = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Tag.objects.all())
     image = Base64ImageField()
     author = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -198,10 +210,12 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
     def validate_ingredients(self, value):
         if not value:
-            raise serializers.ValidationError("Нужно указать хотя бы один ингредиент")
+            raise serializers.ValidationError(
+                "Нужно указать хотя бы один ингредиент")
         ingredients = [item["id"] for item in value]
         if len(ingredients) != len(set(ingredients)):
-            raise serializers.ValidationError("Ингредиенты не должны повторяться")
+            raise serializers.ValidationError(
+                "Ингредиенты не должны повторяться")
         return value
 
     def validate_tags(self, value):
@@ -214,7 +228,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     def create_ingredients(self, ingredients, recipe):
         ingredient_objects = []
         for ingredient_data in ingredients:
-            ingredient = get_object_or_404(Ingredient, id=ingredient_data["id"])
+            ingredient = get_object_or_404(
+                Ingredient, id=ingredient_data["id"])
             ingredient_objects.append(
                 IngredientInRecipe(
                     recipe=recipe,

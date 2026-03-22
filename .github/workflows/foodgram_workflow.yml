@@ -1,0 +1,161 @@
+name: Foodgram Workflow
+
+on:
+  push:
+
+jobs:
+  lint_backend:
+    name: Lint backend with flake8
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8==6.0.0
+          pip install -r ./backend/requirements.txt
+      
+      - name: Lint with flake8
+        run: |
+          cd backend
+          flake8 . --count --show-source --statistics --max-line-length=79
+
+  build_backend:
+    name: Build and push backend image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: lint_backend
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend/
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-backend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-backend:buildcache,mode=max
+
+  build_frontend:
+    name: Build and push frontend image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: lint_backend
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend/
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/foodgram-frontend:buildcache,mode=max
+
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    needs: [build_backend, build_frontend]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Copy docker-compose.production.yml to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "infra/docker-compose.production.yml"
+          target: "foodgram"
+      
+      - name: Copy nginx.conf to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "infra/nginx.conf"
+          target: "foodgram"
+      
+      - name: Copy .env to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "infra/.env"
+          target: "foodgram"
+      
+      - name: Deploy with Docker Compose
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd foodgram/infra
+            sudo docker compose -f docker-compose.production.yml pull
+            sudo docker compose -f docker-compose.production.yml down
+            sudo docker compose -f docker-compose.production.yml up -d
+            sleep 10
+            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
+            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
+
+  send_message:
+    name: Send Telegram notification
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+    steps:
+      - name: Send Telegram message
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: |
+            ✅ **Деплой Foodgram успешно выполнен!**
+            
+            📝 **Информация о коммите:**
+            • Автор: ${{ github.actor }}
+            • Ветка: ${{ github.ref_name }}
+            • Коммит: ${{ github.event.commits[0].message }}
+            
+            🔗 **Ссылка на коммит:**
+            https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+            
+            🕐 **Время:** ${{ github.event.head_commit.timestamp }}
+            
+            🌐 **Проект:** https://foodgram.myftp.org
+            📚 **API:** https://foodgram.myftp.org/api/
+            🔧 **Админка:** https://foodgram.myftp.org/admin/
