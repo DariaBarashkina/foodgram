@@ -161,6 +161,7 @@ python manage.py runserver
 - Выполняется деплой на продакшен сервер
 - Отправляется уведомление в Telegram
 
+
 ### Для работы CI/CD нужно добавить в Secrets GitHub:
 
 **Для работы CI/CD добавьте следующие секреты в настройках репозитория (Settings → Secrets and variables → Actions):**
