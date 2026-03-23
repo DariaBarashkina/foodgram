@@ -1,4 +1,3 @@
-# flake8: noqa
 import os
 from pathlib import Path
 
@@ -13,7 +12,7 @@ SECRET_KEY = os.getenv(
     "django-insecure-%=h8s@f(p0x1f^jps)%wrd3l$-1)z5b(t*5#)_k8_8(h0f)g(9",
 )
 
-DEBUG = "True"
+DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv(
     "ALLOWED_HOSTS", "localhost,127.0.0.1,foodgram.myftp.org"
@@ -34,7 +33,6 @@ INSTALLED_APPS = [
     "recipes",
     "api",
 ]
-
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -66,23 +64,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "backend.wsgi.application"
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.getenv('POSTGRES_DB', 'foodgram'),
-#         'USER': os.getenv('POSTGRES_USER', 'foodgram_user'),
-#         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
-#         'HOST': os.getenv('DB_HOST', 'db'),
-#         'PORT': os.getenv('DB_PORT', 5432)
-#     }
-# }
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if os.getenv("USE_SQLITE", "False") == "True":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'foodgram'),
+            'USER': os.getenv('POSTGRES_USER', 'foodgram_user'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'db'),
+            'PORT': os.getenv('DB_PORT', 5432)
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -100,25 +99,19 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "ru-ru"
-
 TIME_ZONE = "Europe/Moscow"
-
 USE_I18N = True
-
 USE_TZ = True
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "staticfiles")]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 AUTH_USER_MODEL = "users.User"
 
 REST_FRAMEWORK = {
