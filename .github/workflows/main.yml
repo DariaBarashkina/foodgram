@@ -134,8 +134,7 @@ jobs:
             fi
             
             sudo docker compose -f docker-compose.production.yml pull
-            sudo docker compose -f docker-compose.production.yml stop
-            sudo docker compose -f docker-compose.production.yml rm -f
+            sudo docker compose -f docker-compose.production.yml down
             sudo docker compose -f docker-compose.production.yml up -d
             sleep 10
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate

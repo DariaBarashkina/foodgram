@@ -142,3 +142,5 @@ static/
 media/
 staticfiles/
 templates/
+
+pyproject.toml
