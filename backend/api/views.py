@@ -219,9 +219,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
         """Короткая ссылка."""
+        scheme = 'https'
         recipe = self.get_object()
-        short_link = request.build_absolute_uri(f'/s/{recipe.id}/')
-        return Response({'short-link': short_link})
+        link = f'{scheme}://{recipe}/s/{recipe.id}/'
+        return Response({'short-link': link})
 
     @action(
         detail=False,
