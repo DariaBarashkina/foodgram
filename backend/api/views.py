@@ -191,32 +191,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    # 🔥 универсальный метод добавления
-    def _add_relation(self, request, model, recipe):
-        if model.objects.filter(user=request.user, recipe=recipe).exists():
-            raise ValidationError('Уже добавлено')
-
-        obj = model.objects.create(
-            user=request.user, recipe=recipe
-        )
-
-        serializer = ShortRecipeSerializer(
-            obj.recipe,
-            context={'request': request}
-        )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    # 🔥 универсальный метод удаления
-    def _delete_relation(self, request, model, recipe):
-        deleted, _ = model.objects.filter(
-            user=request.user, recipe=recipe
-        ).delete()
-
-        if not deleted:
-            raise ValidationError('Объект не найден')
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
     @action(
         detail=True,
         methods=['post', 'delete'],
@@ -243,7 +217,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return self._add_relation(request, ShoppingCart, recipe)
         return self._delete_relation(request, ShoppingCart, recipe)
 
-    @action(detail=True, methods=['get'], url_path='get-link')
+    @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
         """Короткая ссылка."""
         recipe = self.get_object()
