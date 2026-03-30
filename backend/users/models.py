@@ -1,24 +1,34 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from core.constants import MAX_EMAIL_LENGTH, MAX_USERNAME_LENGTH
+
 
 class User(AbstractUser):
-    """Расширенная модель пользователя."""
+    """
+    Кастомная модель пользователя.
 
-    email = models.EmailField('email address', unique=True, max_length=254)
-    username = models.CharField('username', max_length=150, unique=True)
-    first_name = models.CharField('first name', max_length=150)
-    last_name = models.CharField('last name', max_length=150)
-    password = models.CharField('password', max_length=150)
+    Использует email как основной идентификатор.
+    """
+
+    email = models.EmailField(
+        'Email', max_length=MAX_EMAIL_LENGTH, unique=True
+    )
+    username = models.CharField(
+        'Username', max_length=MAX_USERNAME_LENGTH, unique=True
+    )
+    first_name = models.CharField('Имя', max_length=150)
+    last_name = models.CharField('Фамилия', max_length=150)
+
     avatar = models.ImageField(
-        'avatar', upload_to='users/', null=True, blank=True
+        'Аватар', upload_to='users/', null=True, blank=True
     )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
-        ordering = ['id']
+        ordering = ('id',)
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
@@ -27,18 +37,22 @@ class User(AbstractUser):
 
 
 class Subscription(models.Model):
-    """Модель подписок."""
+    """
+    Модель подписки пользователей.
+
+    Пользователь (user) подписывается на автора (author).
+    """
 
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='follower',
+        related_name='subscriptions',
         verbose_name='Подписчик',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='following',
+        related_name='subscribers',
         verbose_name='Автор',
     )
 
@@ -47,9 +61,10 @@ class Subscription(models.Model):
         verbose_name_plural = 'Подписки'
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'author'], name='unique_subscription'
+                fields=('user', 'author'),
+                name='unique_subscription'
             )
         ]
 
     def __str__(self):
-        return f'{self.user.username} подписан на {self.author.username}'
+        return f'{self.user} → {self.author}'

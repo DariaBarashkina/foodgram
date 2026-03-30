@@ -1,10 +1,15 @@
 from django_filters import rest_framework as filters
 
 from recipes.models import Ingredient, Recipe, Tag
+from recipes.constants import TRUE_VALUE, FALSE_VALUE
 
 
 class IngredientFilter(filters.FilterSet):
-    """Фильтр для ингредиентов."""
+    """
+    Фильтр для поиска ингредиентов по названию.
+
+    Поиск выполняется по началу строки (без учета регистра).
+    """
 
     name = filters.CharFilter(lookup_expr='istartswith')
 
@@ -14,30 +19,75 @@ class IngredientFilter(filters.FilterSet):
 
 
 class RecipeFilter(filters.FilterSet):
-    """Фильтр для рецептов."""
+    """
+    Фильтр рецептов.
+
+    Поддерживает:
+    - фильтрацию по автору
+    - фильтрацию по тегам (slug)
+    - фильтрацию по избранному (0/1)
+    - фильтрацию по списку покупок (0/1)
+    """
 
     tags = filters.ModelMultipleChoiceFilter(
         field_name='tags__slug',
         to_field_name='slug',
         queryset=Tag.objects.all(),
     )
+
     author = filters.NumberFilter()
-    is_favorited = filters.BooleanFilter(method='filter_is_favorited')
-    is_in_shopping_cart = filters.BooleanFilter(
-        method='filter_is_in_shopping_cart')
+
+    is_favorited = filters.NumberFilter(method='filter_is_favorited')
+    is_in_shopping_cart = filters.NumberFilter(
+        method='filter_is_in_shopping_cart'
+    )
 
     class Meta:
         model = Recipe
         fields = ('author', 'tags')
 
     def filter_is_favorited(self, queryset, name, value):
-        """Фильтр по избранному."""
-        if value and self.request.user.is_authenticated:
-            return queryset.filter(favorites__user=self.request.user)
+        """
+        Фильтрация по избранному.
+
+        TRUE_VALUE (1) → только избранные
+        FALSE_VALUE (0) → исключить избранные
+        """
+        user = self.request.user
+
+        if value == TRUE_VALUE:
+            if not user.is_authenticated:
+                return queryset.none()
+            return queryset.filter(
+                favorites__user=user
+            ).distinct()
+
+        if value == FALSE_VALUE and user.is_authenticated:
+            return queryset.exclude(
+                favorites__user=user
+            ).distinct()
+
         return queryset
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
-        """Фильтр по списку покупок."""
-        if value and self.request.user.is_authenticated:
-            return queryset.filter(shopping_cart__user=self.request.user)
+        """
+        Фильтрация по списку покупок.
+
+        TRUE_VALUE (1) → только в списке покупок
+        FALSE_VALUE (0) → исключить
+        """
+        user = self.request.user
+
+        if value == TRUE_VALUE:
+            if not user.is_authenticated:
+                return queryset.none()
+            return queryset.filter(
+                shopping_cart__user=user
+            ).distinct()
+
+        if value == FALSE_VALUE and user.is_authenticated:
+            return queryset.exclude(
+                shopping_cart__user=user
+            ).distinct()
+
         return queryset
