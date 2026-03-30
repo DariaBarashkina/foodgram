@@ -33,7 +33,6 @@ from .serializers import (
     IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
-    ShortRecipeSerializer,
     SubscriptionSerializer,
     TagSerializer,
 )
@@ -68,8 +67,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['get'],
-        permission_classes=[IsAuthenticated]
+        methods=('get',),
+        permission_classes=(IsAuthenticated,)
     )
     def me(self, request):
         """Текущий пользователь."""
@@ -78,8 +77,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['put', 'delete'],
-        permission_classes=[IsAuthenticated],
+        methods=('put', 'delete'),
+        permission_classes=(IsAuthenticated,)
         url_path='me/avatar',
     )
     def avatar(self, request):
@@ -101,8 +100,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[IsAuthenticated],
+        methods=('post', 'delete'),
+        permission_classes=(IsAuthenticated,)
     )
     def subscribe(self, request, pk=None):
         """Подписка/отписка."""
@@ -138,8 +137,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['get'],
-        permission_classes=[IsAuthenticated],
+        methods=('get',),
+        permission_classes=(IsAuthenticated,)
     )
     def subscriptions(self, request):
         """Список подписок."""
@@ -193,8 +192,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[IsAuthenticated],
+        methods=('post', 'delete'),
+        permission_classes=(IsAuthenticated,)
     )
     def favorite(self, request, pk=None):
         """Избранное."""
@@ -206,8 +205,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
-        permission_classes=[IsAuthenticated],
+        methods=('post', 'delete'),
+        permission_classes=(IsAuthenticated,)
     )
     def shopping_cart(self, request, pk=None):
         """Список покупок."""
@@ -226,8 +225,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=['get'],
-        permission_classes=[IsAuthenticated],
+        methods=('get',),
+        permission_classes=(IsAuthenticated,)
     )
     def download_shopping_cart(self, request):
         """Скачать список покупок."""
