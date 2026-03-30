@@ -66,7 +66,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return CustomUserCreateSerializer
         return CustomUserSerializer
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated]
+    )
     def me(self, request):
         """Текущий пользователь."""
         serializer = self.get_serializer(request.user)

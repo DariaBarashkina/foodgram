@@ -189,6 +189,6 @@ class SubscriptionSerializer(CustomUserSerializer):
         recipes = obj.recipes.all()
         if limit:
             recipes = recipes[:int(limit)]
-        return RecipeMinifiedSerializer(
+        return ShortRecipeSerializer(
             recipes, many=True, context=self.context
         ).data
