@@ -92,7 +92,7 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
-class RecipeMinifiedSerializer(serializers.ModelSerializer):
+class ShortRecipeSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
     class Meta:

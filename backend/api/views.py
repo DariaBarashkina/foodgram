@@ -33,7 +33,7 @@ from .serializers import (
     IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
-    ShortRecipeSerializer,  # 🔥 исправлено название
+    ShortRecipeSerializer,
     SubscriptionSerializer,
     TagSerializer,
 )
