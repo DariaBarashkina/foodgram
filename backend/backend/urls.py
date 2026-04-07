@@ -17,7 +17,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('s/<int:pk>/', redirect_to_recipe, name='short-link'),
-    re_path(r'^(?!api|admin|static|media|s).*$', index, name='spa-fallback'),
+#    re_path(r'^(?!api|admin|static|media|s).*$', index, name='spa-fallback'),
 ]
 
 if settings.DEBUG:
