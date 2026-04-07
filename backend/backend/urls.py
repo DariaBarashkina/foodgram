@@ -5,6 +5,7 @@ from django.urls import include, path
 from django.shortcuts import redirect, get_object_or_404
 from recipes.models import Recipe
 
+
 def redirect_to_recipe(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk)
     return redirect(f'/recipes/{recipe.id}/')
