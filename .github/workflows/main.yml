@@ -132,14 +132,14 @@ jobs:
               echo "DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}" >> .env
               echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
             fi
-            
             sudo docker compose -f docker-compose.production.yml pull
             sudo docker compose -f docker-compose.production.yml down
             sudo docker compose -f docker-compose.production.yml up -d
             sleep 10
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py migrate
-            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
-            sudo docker compose -f docker-compose.production.yml ps
+            sudo docker run --rm -v static_value:/static barashkina/foodgram-backend:latest sh -c "cp -r /app/static/* /static/"
+            sudo docker run --rm -v frontend_build:/output barashkina/foodgram-frontend:latest sh -c "cp -r /app/build/* /output/"
+            sudo docker restart foodgram-nginx
 
   send_message:
     runs-on: ubuntu-latest
