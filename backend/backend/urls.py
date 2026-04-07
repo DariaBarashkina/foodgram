@@ -7,6 +7,7 @@ from recipes.models import Recipe
 
 from api.views import index
 
+
 def redirect_to_recipe(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk)
     return redirect(f'/recipes/{recipe.id}/')
@@ -21,5 +22,11 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(
+        settings.MEDIA_URL,
+        document_root=settings.MEDIA_ROOT
+    )
+    urlpatterns += static(
+        settings.STATIC_URL,
+        document_root=settings.STATIC_ROOT
+    )
