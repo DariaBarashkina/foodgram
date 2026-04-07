@@ -1,6 +1,6 @@
 from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -33,6 +33,7 @@ from .serializers import (
     IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
+    ShortRecipeSerializer,
     SubscriptionSerializer,
     TagSerializer,
 )
@@ -93,10 +94,14 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer.save()
             return Response(serializer.data)
 
-        request.user.avatar.delete()
-        request.user.avatar = None
-        request.user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if request.method == 'DELETE':
+            if request.user.avatar:
+                request.user.avatar.delete()
+                request.user.avatar = None
+                request.user.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(
         detail=True,
@@ -196,12 +201,29 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,)
     )
     def favorite(self, request, pk=None):
-        """Избранное."""
+        """Добавить/удалить рецепт из избранного."""
         recipe = self.get_object()
+        user = request.user
 
         if request.method == 'POST':
-            return self._add_relation(request, Favorite, recipe)
-        return self._delete_relation(request, Favorite, recipe)
+            if Favorite.objects.filter(user=user, recipe=recipe).exists():
+                raise ValidationError('Рецепт уже в избранном')
+
+            Favorite.objects.create(user=user, recipe=recipe)
+
+            serializer = ShortRecipeSerializer(
+                recipe, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        deleted, _ = Favorite.objects.filter(
+            user=user, recipe=recipe
+        ).delete()
+
+        if not deleted:
+            raise ValidationError('Рецепта нет в избранном')
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=True,
@@ -209,19 +231,37 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,)
     )
     def shopping_cart(self, request, pk=None):
-        """Список покупок."""
+        """Добавить/удалить рецепт из списка покупок."""
         recipe = self.get_object()
+        user = request.user
 
         if request.method == 'POST':
-            return self._add_relation(request, ShoppingCart, recipe)
-        return self._delete_relation(request, ShoppingCart, recipe)
+            if ShoppingCart.objects.filter(
+                user=user, recipe=recipe
+            ).exists():
+                raise ValidationError('Рецепт уже в списке покупок')
+
+            ShoppingCart.objects.create(user=user, recipe=recipe)
+
+            serializer = ShortRecipeSerializer(
+                recipe, context={'request': request}
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        deleted, _ = ShoppingCart.objects.filter(
+            user=user, recipe=recipe
+        ).delete()
+
+        if not deleted:
+            raise ValidationError('Рецепта нет в списке покупок')
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
-        """Короткая ссылка."""
-        scheme = 'https'
+        """Получить короткую ссылку на рецепт."""
         recipe = self.get_object()
-        link = f'{scheme}://{recipe}/s/{recipe.id}/'
+        link = request.build_absolute_uri(f'/s/{recipe.id}/')
         return Response({'short-link': link})
 
     @action(
