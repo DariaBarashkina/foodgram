@@ -7,7 +7,6 @@ from recipes.constants import (
     MIN_INGREDIENT_AMOUNT,
     MAX_NAME_LENGTH,
     MAX_MEASUREMENT_UNIT_LENGTH,
-    MAX_TAG_COLOR_LENGTH,
     MAX_SLUG_LENGTH,
 )
 
