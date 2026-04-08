@@ -11,15 +11,10 @@ def redirect_to_recipe(request, code):
     return redirect(f'/recipes/{recipe.id}')
 
 
-def redirect_to_edit(request, pk):
-    return redirect(f'/recipes/{pk}edit/')
-
-
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('s/<str:code>/', redirect_to_recipe, name='short-link'),
-    re_path(r'^recipes/(?P<pk>\d+)/+/edit/$', redirect_to_edit),
 ]
 
 if settings.DEBUG:
