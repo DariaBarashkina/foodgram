@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -96,6 +99,15 @@ class Recipe(models.Model):
         'Дата публикации',
         auto_now_add=True
     )
+
+    short_code = models.CharField(max_length=10, unique=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.short_code:
+            self.short_code = ''.join(
+                random.choices(string.ascii_letters + string.digits, k=6)
+            )
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Рецепт'

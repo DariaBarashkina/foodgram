@@ -147,7 +147,7 @@ class UserViewSet(viewsets.ModelViewSet):
     )
     def subscriptions(self, request):
         """Список подписок."""
-        authors = User.objects.filter(following__user=request.user)
+        authors = User.objects.filter(subscribers__user=request.user)
 
         page = self.paginate_queryset(authors)
         serializer = SubscriptionSerializer(
@@ -259,9 +259,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
-        """Получить короткую ссылку на рецепт."""
         recipe = self.get_object()
-        link = request.build_absolute_uri(f'/s/{recipe.id}/')
+        link = request.build_absolute_uri(f'/s/{recipe.short_code}')
         return Response({'short-link': link})
 
     @action(
