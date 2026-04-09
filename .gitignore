@@ -144,3 +144,4 @@ staticfiles/
 templates/
 
 pyproject.toml
+.isort.cfg

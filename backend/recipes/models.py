@@ -4,14 +4,14 @@ import string
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from users.models import User
 from recipes.constants import (
+    MAX_MEASUREMENT_UNIT_LENGTH,
+    MAX_NAME_LENGTH,
+    MAX_SLUG_LENGTH,
     MIN_COOKING_TIME,
     MIN_INGREDIENT_AMOUNT,
-    MAX_NAME_LENGTH,
-    MAX_MEASUREMENT_UNIT_LENGTH,
-    MAX_SLUG_LENGTH,
 )
+from users.models import User
 
 
 class Tag(models.Model):
