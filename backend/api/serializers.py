@@ -190,41 +190,48 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                 item_errors['id'] = ['Ингредиенты не должны повторяться']
             ids.append(ingredient_id)
 
-            if not isinstance(amount, int) or amount < 1:
-                item_errors['amount'] = ['Количество должно быть больше 0']
+            # 🔥 ФИКС: приводим к int перед проверкой
+            try:
+                amount = int(amount)
+            except (ValueError, TypeError):
+                item_errors['amount'] = ['Количество должно быть числом']
+            else:
+                if amount < 1:
+                    item_errors['amount'] = ['Количество должно быть больше 0']
 
             errors.append(item_errors)
 
         if any(errors):
+            # 🔥 ФИКС: правильный формат ошибки (без вложенности)
             raise serializers.ValidationError(errors)
 
         return value
 
     def validate_cooking_time(self, value):
-        """Валидация времени приготовления."""
         try:
             value = int(value)
         except (ValueError, TypeError):
             raise serializers.ValidationError(
-                {'cooking_time': ['Время приготовления должно быть числом']}
+                'Время приготовления должно быть числом'
             )
         if value < 1:
             raise serializers.ValidationError(
-                {'cooking_time': [
-                    'Время приготовления должно быть не менее 1 минуты'
-                ]}
+                'Время приготовления должно быть не менее 1 минуты'
             )
         return value
 
     def validate(self, data):
-        """Общая валидация."""
         errors = {}
+
         if not data.get('tags'):
             errors['tags'] = ['Нужно указать хотя бы один тег']
+
         if not data.get('ingredients'):
             errors['ingredients'] = ['Нужно указать хотя бы один ингредиент']
+
         if errors:
             raise serializers.ValidationError(errors)
+
         return data
 
     def create(self, validated_data):
@@ -250,7 +257,6 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         tags = validated_data.pop('tags')
 
         instance.tags.set(tags)
-
         instance.ingredient_in_recipe.all().delete()
 
         IngredientInRecipe.objects.bulk_create([
@@ -283,6 +289,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         recipes = obj.recipes.all()
         recipes_limit = request.query_params.get('recipes_limit')
+
         if recipes_limit:
             try:
                 limit = int(recipes_limit)
@@ -290,6 +297,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
                     recipes = recipes[:limit]
             except (ValueError, TypeError):
                 pass
+
         return ShortRecipeSerializer(
             recipes, many=True, context=self.context
         ).data
@@ -301,6 +309,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
+
         return Subscription.objects.filter(
             user=request.user, author=obj
         ).exists()
