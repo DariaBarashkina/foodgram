@@ -6,7 +6,6 @@ from djoser.serializers import UserCreateSerializer, UserSerializer
 
 from rest_framework import serializers
 
-from recipes.constants import MIN_INGREDIENT_AMOUNT
 from recipes.models import (
     Favorite,
     Ingredient,
@@ -162,7 +161,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 class RecipeCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания/обновления рецептов."""
 
-    ingredients = serializers.ListField()
+    ingredients = serializers.ListField(write_only=True)
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(), many=True
     )
@@ -179,10 +178,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                 'Нужно указать хотя бы один ингредиент'
             )
         for item in value:
-            if item.get('amount', 0) < MIN_INGREDIENT_AMOUNT:
+            amount = item.get('amount')
+            if amount is None or amount <= 0:
                 raise serializers.ValidationError(
-                    'Количество ингредиента должно быть не менее '
-                    + str(MIN_INGREDIENT_AMOUNT)
+                    'Количество ингредиента должно быть положительным числом'
                 )
         return value
 
