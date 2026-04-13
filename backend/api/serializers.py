@@ -173,28 +173,31 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate_ingredients(self, value):
-        """Валидация ингредиентов."""
         if not value:
             raise serializers.ValidationError(
                 {'ingredients': ['Нужно указать хотя бы один ингредиент']}
             )
-        for i, item in enumerate(value, 1):
+
+        errors = []
+        ids = []
+
+        for item in value:
+            item_errors = {}
+            ingredient_id = item.get('id')
             amount = item.get('amount')
-            if amount is not None:
-                try:
-                    amount = int(amount)
-                except (ValueError, TypeError):
-                    raise serializers.ValidationError(
-                        {'ingredients': [
-                            f'Ингредиент {i}: количество должно быть числом'
-                        ]}
-                    )
-            if amount is None or amount <= 0:
-                raise serializers.ValidationError(
-                    {'ingredients': [
-                        f'Ингредиент {i}: количество должно быть больше 0'
-                    ]}
-                )
+
+            if ingredient_id in ids:
+                item_errors['id'] = ['Ингредиенты не должны повторяться']
+            ids.append(ingredient_id)
+
+            if not isinstance(amount, int) or amount < 1:
+                item_errors['amount'] = ['Количество должно быть больше 0']
+
+            errors.append(item_errors)
+
+        if any(errors):
+            raise serializers.ValidationError({'ingredients': errors})
+
         return value
 
     def validate_cooking_time(self, value):
@@ -241,6 +244,25 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         ])
 
         return recipe
+
+    def update(self, instance, validated_data):
+        ingredients = validated_data.pop('ingredients')
+        tags = validated_data.pop('tags')
+
+        instance.tags.set(tags)
+
+        instance.ingredient_in_recipe.all().delete()
+
+        IngredientInRecipe.objects.bulk_create([
+            IngredientInRecipe(
+                recipe=instance,
+                ingredient_id=item['id'],
+                amount=item['amount']
+            )
+            for item in ingredients
+        ])
+
+        return super().update(instance, validated_data)
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):

@@ -6,11 +6,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import (
-    AllowAny,
-    IsAuthenticated,
-    IsAuthenticatedOrReadOnly,
-)
 from rest_framework.response import Response
 
 from recipes.models import (
@@ -24,7 +19,7 @@ from recipes.models import (
 from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
-from .pagination import CustomPagination
+from .pagination import RecipePagination
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     AvatarSerializer,
@@ -44,43 +39,28 @@ class UserViewSet(viewsets.ModelViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    pagination_class = CustomPagination
-
-    def get_permissions(self):
-        if self.action == 'create':
-            return (AllowAny(),)
-        return (IsAuthenticatedOrReadOnly(),)
+    pagination_class = RecipePagination
 
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
         return UserSerializer
 
-    @action(
-        detail=False,
-        methods=('get',),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=False, methods=('get',))
     def me(self, request):
-        """Текущий пользователь."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
-    @action(
-        detail=False,
-        methods=('put', 'delete'),
-        permission_classes=(IsAuthenticated,),
-        url_path='me/avatar',
-    )
+    @action(detail=False, methods=('put', 'delete'), url_path='me/avatar')
     def avatar(self, request):
-        """Добавление/удаление аватара."""
         if request.method == 'PUT':
             serializer = AvatarSerializer(
                 request.user,
                 data=request.data,
                 context={'request': request}
             )
-            serializer.is_valid(raise_exception=True)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=400)
             serializer.save()
             return Response(serializer.data)
 
@@ -93,13 +73,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    @action(
-        detail=True,
-        methods=('post', 'delete'),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=True, methods=('post', 'delete'))
     def subscribe(self, request, pk=None):
-        """Подписка/отписка."""
         author = get_object_or_404(User, pk=pk)
 
         if request.user == author:
@@ -139,13 +114,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(
-        detail=False,
-        methods=('get',),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=False, methods=('get',))
     def subscriptions(self, request):
-        """Список подписок."""
         authors = User.objects.filter(subscribers__user=request.user)
 
         page = self.paginate_queryset(authors)
@@ -158,30 +128,22 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
-    """Теги."""
-
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    permission_classes = (AllowAny,)
     pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
-    """Ингредиенты."""
-
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    permission_classes = (AllowAny,)
     pagination_class = None
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    """Рецепты."""
-
     queryset = Recipe.objects.all()
-    pagination_class = CustomPagination
+    pagination_class = RecipePagination
     permission_classes = (IsAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
@@ -200,17 +162,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(
             instance, data=request.data, partial=partial
         )
-        serializer.is_valid(raise_exception=True)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
         self.perform_update(serializer)
         return Response(serializer.data)
 
-    @action(
-        detail=True,
-        methods=('post', 'delete'),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=True, methods=('post', 'delete'))
     def favorite(self, request, pk=None):
-        """Добавить/удалить рецепт из избранного."""
         recipe = self.get_object()
         user = request.user
 
@@ -240,13 +200,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(
-        detail=True,
-        methods=('post', 'delete'),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=True, methods=('post', 'delete'))
     def shopping_cart(self, request, pk=None):
-        """Добавить/удалить рецепт из списка покупок."""
         recipe = self.get_object()
         user = request.user
 
@@ -284,13 +239,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         link = request.build_absolute_uri(f'/s/{recipe.short_code}')
         return Response({'short-link': link})
 
-    @action(
-        detail=False,
-        methods=('get',),
-        permission_classes=(IsAuthenticated,)
-    )
+    @action(detail=False, methods=('get',))
     def download_shopping_cart(self, request):
-        """Скачать список покупок."""
         ingredients = (
             IngredientInRecipe.objects.filter(
                 recipe__shopping_cart__user=request.user
