@@ -2,8 +2,7 @@ import base64
 
 from django.core.files.base import ContentFile
 
-from djoser.serializers import UserCreateSerializer as DjoserUserCreateSerializer
-from djoser.serializers import UserSerializer as DjoserUserSerializer
+from djoser.serializers import UserCreateSerializer, UserSerializer
 
 from rest_framework import serializers
 
@@ -30,10 +29,10 @@ class Base64ImageField(serializers.ImageField):
         return super().to_internal_value(data)
 
 
-class UserCreateSerializer(DjoserUserCreateSerializer):
+class UserCreateSerializer(UserCreateSerializer):
     """Сериализатор создания пользователя."""
 
-    class Meta(DjoserUserCreateSerializer.Meta):
+    class Meta(UserCreateSerializer.Meta):
         model = User
         fields = (
             'email', 'id', 'username',
@@ -41,13 +40,13 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
         )
 
 
-class UserSerializer(DjoserUserSerializer):
+class UserSerializer(UserSerializer):
     """Сериализатор пользователя."""
 
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
-    class Meta(DjoserUserSerializer.Meta):
+    class Meta(UserSerializer.Meta):
         model = User
         fields = (
             'email', 'id', 'username',
@@ -176,11 +175,15 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
     def validate_ingredients(self, value):
         if not value:
-            raise serializers.ValidationError('Нужно указать хотя бы один ингредиент')
+            raise serializers.ValidationError(
+                'Нужно указать хотя бы один ингредиент'
+            )
         for item in value:
             if item.get('amount', 0) < MIN_INGREDIENT_AMOUNT:
                 raise serializers.ValidationError(
-                    f'Количество ингредиента должно быть не менее {MIN_INGREDIENT_AMOUNT}'
+                    f'Количество ингредиента должно быть не менее {
+                        MIN_INGREDIENT_AMOUNT
+                    }'
                 )
         return value
 
