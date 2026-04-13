@@ -180,11 +180,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             )
         for item in value:
             if item.get('amount', 0) < MIN_INGREDIENT_AMOUNT:
-                raise serializers.ValidationError(
-                    f'Количество ингредиента должно быть не менее {
-                        MIN_INGREDIENT_AMOUNT
-                    }'
-                )
+            raise serializers.ValidationError(
+                'Количество ингредиента должно быть не менее '
+                + str(MIN_INGREDIENT_AMOUNT)
+            )
         return value
 
     def validate_cooking_time(self, value):
