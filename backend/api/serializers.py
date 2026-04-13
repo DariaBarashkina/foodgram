@@ -190,7 +190,6 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                 item_errors['id'] = ['Ингредиенты не должны повторяться']
             ids.append(ingredient_id)
 
-            # 🔥 ФИКС: приводим к int перед проверкой
             try:
                 amount = int(amount)
             except (ValueError, TypeError):
@@ -202,7 +201,6 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             errors.append(item_errors)
 
         if any(errors):
-            # 🔥 ФИКС: правильный формат ошибки (без вложенности)
             raise serializers.ValidationError(errors)
 
         return value
