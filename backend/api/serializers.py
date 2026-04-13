@@ -175,7 +175,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     def validate_ingredients(self, value):
         if not value:
             raise serializers.ValidationError(
-                {'ingredients': ['Нужно указать хотя бы один ингредиент']}
+                ['Нужно указать хотя бы один ингредиент']
             )
 
         errors = []
@@ -196,7 +196,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             errors.append(item_errors)
 
         if any(errors):
-            raise serializers.ValidationError({'ingredients': errors})
+            raise serializers.ValidationError(errors)
 
         return value
 
