@@ -159,6 +159,8 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class RecipeCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания/обновления рецептов."""
+
     ingredients = serializers.ListField(write_only=True)
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(), many=True
@@ -174,24 +176,24 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         """Валидация ингредиентов."""
         if not value:
             raise serializers.ValidationError(
-                'Нужно указать хотя бы один ингредиент'
+                {'ingredients': ['Нужно указать хотя бы один ингредиент']}
             )
-        for item in value:
+        for i, item in enumerate(value, 1):
             amount = item.get('amount')
             if amount is not None:
                 try:
                     amount = int(amount)
                 except (ValueError, TypeError):
                     raise serializers.ValidationError(
-                        'Количество ингредиента должно быть числом'
+                        {'ingredients': [
+                            f'Ингредиент {i}: количество должно быть числом'
+                        ]}
                     )
             if amount is None or amount <= 0:
                 raise serializers.ValidationError(
-                    'Количество ингредиента должно быть больше 0'
-                )
-            if not item.get('id'):
-                raise serializers.ValidationError(
-                    'Не указан ID ингредиента'
+                    {'ingredients': [
+                        f'Ингредиент {i}: количество должно быть больше 0'
+                    ]}
                 )
         return value
 
@@ -201,28 +203,25 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             value = int(value)
         except (ValueError, TypeError):
             raise serializers.ValidationError(
-                'Время приготовления должно быть числом'
+                {'cooking_time': ['Время приготовления должно быть числом']}
             )
         if value < 1:
             raise serializers.ValidationError(
-                'Время приготовления должно быть не менее 1 минуты'
+                {'cooking_time': [
+                    'Время приготовления должно быть не менее 1 минуты'
+                ]}
             )
         return value
 
     def validate(self, data):
         """Общая валидация."""
         errors = {}
-
         if not data.get('tags'):
             errors['tags'] = ['Нужно указать хотя бы один тег']
-
-        ingredients = data.get('ingredients')
-        if not ingredients:
+        if not data.get('ingredients'):
             errors['ingredients'] = ['Нужно указать хотя бы один ингредиент']
-
         if errors:
             raise serializers.ValidationError(errors)
-
         return data
 
     def create(self, validated_data):
