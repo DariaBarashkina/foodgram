@@ -1,15 +1,12 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.core.exceptions import ValidationError
 
-from core.constants import MAX_EMAIL_LENGTH, MAX_USERNAME_LENGTH
+from users.constants import MAX_EMAIL_LENGTH, MAX_USERNAME_LENGTH
 
 
 class User(AbstractUser):
-    """
-    Кастомная модель пользователя.
-
-    Использует email как основной идентификатор.
-    """
+    """Модель пользователя. Использует email как основной идентификатор."""
 
     email = models.EmailField(
         'Email', max_length=MAX_EMAIL_LENGTH, unique=True
@@ -37,11 +34,7 @@ class User(AbstractUser):
 
 
 class Subscription(models.Model):
-    """
-    Модель подписки пользователей.
-
-    Пользователь (user) подписывается на автора (author).
-    """
+    """Модель подписки пользователей."""
 
     user = models.ForeignKey(
         User,
@@ -65,6 +58,14 @@ class Subscription(models.Model):
                 name='unique_subscription'
             )
         ]
+
+    def clean(self):
+        if self.user == self.author:
+            raise ValidationError('Нельзя подписаться на себя')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.user} → {self.author}'

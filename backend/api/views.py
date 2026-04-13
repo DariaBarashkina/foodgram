@@ -1,12 +1,11 @@
 from django.db.models import Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404
 
 from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import (
     AllowAny,
     IsAuthenticated,
@@ -26,34 +25,25 @@ from users.models import Subscription, User
 
 from .filters import IngredientFilter, RecipeFilter
 from .pagination import CustomPagination
+from .permissions import IsAuthorOrReadOnly
 from .serializers import (
     AvatarSerializer,
-    CustomUserCreateSerializer,
-    CustomUserSerializer,
     IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
     ShortRecipeSerializer,
     SubscriptionSerializer,
     TagSerializer,
+    UserCreateSerializer,
+    UserSerializer,
 )
-
-
-class IsAuthorOrReadOnly(IsAuthenticatedOrReadOnly):
-    """Разрешение: редактировать может только автор."""
-
-    def has_object_permission(self, request, view, obj):
-        return (
-            request.method in ('GET', 'HEAD', 'OPTIONS')
-            or obj.author == request.user
-        )
 
 
 class UserViewSet(viewsets.ModelViewSet):
     """Вьюсет пользователей."""
 
     queryset = User.objects.all()
-    serializer_class = CustomUserSerializer
+    serializer_class = UserSerializer
     pagination_class = CustomPagination
 
     def get_permissions(self):
@@ -63,8 +53,8 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == 'create':
-            return CustomUserCreateSerializer
-        return CustomUserSerializer
+            return UserCreateSerializer
+        return UserSerializer
 
     @action(
         detail=False,
@@ -113,13 +103,19 @@ class UserViewSet(viewsets.ModelViewSet):
         author = get_object_or_404(User, pk=pk)
 
         if request.user == author:
-            raise ValidationError('Нельзя подписаться на себя')
+            return Response(
+                {'detail': 'Нельзя подписаться на себя'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if request.method == 'POST':
             if Subscription.objects.filter(
                 user=request.user, author=author
             ).exists():
-                raise ValidationError('Вы уже подписаны')
+                return Response(
+                    {'detail': 'Вы уже подписаны'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             Subscription.objects.create(
                 user=request.user, author=author
@@ -136,7 +132,10 @@ class UserViewSet(viewsets.ModelViewSet):
         ).delete()
 
         if not deleted:
-            raise ValidationError('Вы не были подписаны')
+            return Response(
+                {'detail': 'Вы не были подписаны'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -188,12 +187,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_serializer_class(self):
-        if self.action in ('create', 'partial_update'):
+        if self.action in ('create', 'partial_update', 'update'):
             return RecipeCreateSerializer
         return RecipeSerializer
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     @action(
         detail=True,
@@ -207,7 +214,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         if request.method == 'POST':
             if Favorite.objects.filter(user=user, recipe=recipe).exists():
-                raise ValidationError('Рецепт уже в избранном')
+                return Response(
+                    {'detail': 'Рецепт уже в избранном'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             Favorite.objects.create(user=user, recipe=recipe)
 
@@ -221,7 +231,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ).delete()
 
         if not deleted:
-            raise ValidationError('Рецепта нет в избранном')
+            return Response(
+                {'detail': 'Рецепта нет в избранном'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -239,7 +252,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
             if ShoppingCart.objects.filter(
                 user=user, recipe=recipe
             ).exists():
-                raise ValidationError('Рецепт уже в списке покупок')
+                return Response(
+                    {'detail': 'Рецепт уже в списке покупок'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             ShoppingCart.objects.create(user=user, recipe=recipe)
 
@@ -253,7 +269,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ).delete()
 
         if not deleted:
-            raise ValidationError('Рецепта нет в списке покупок')
+            return Response(
+                {'detail': 'Рецепта нет в списке покупок'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -294,8 +313,3 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'attachment; filename="shopping_list.txt"'
         )
         return response
-
-
-def index(request):
-    """Заглушка для главной страницы."""
-    return render(request, 'index.html')
