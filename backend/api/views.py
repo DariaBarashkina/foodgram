@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from recipes.models import (
@@ -154,18 +154,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
 
     def get_permissions(self):
+        if self.action in ('create',):
+            return [IsAuthenticated()]
+
+        if self.action in ('update', 'partial_update', 'destroy'):
+            return [IsAuthenticated(), IsAuthorOrReadOnly()]
+
         if self.action in (
             'favorite',
             'shopping_cart',
             'download_shopping_cart',
-            'create',
-            'update',
-            'partial_update',
-            'destroy',
         ):
             return [IsAuthenticated()]
 
-        return [IsAuthorOrReadOnly()]
+        return [AllowAny()]
 
     def get_serializer_class(self):
         if self.action in ('create', 'partial_update', 'update'):
