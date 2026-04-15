@@ -54,11 +54,13 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=('get',))
     def me(self, request):
+        """Текущий пользователь."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
     @action(detail=False, methods=('put', 'delete'), url_path='me/avatar')
     def avatar(self, request):
+        """Добавление/удаление аватара."""
         if request.method == 'PUT':
             serializer = AvatarSerializer(
                 request.user,
@@ -81,6 +83,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=('post', 'delete'))
     def subscribe(self, request, pk=None):
+        """Подписка/отписка."""
         author = get_object_or_404(User, pk=pk)
 
         if request.user == author:
@@ -122,6 +125,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=('get',))
     def subscriptions(self, request):
+        """Список подписок."""
         authors = User.objects.filter(subscribers__user=request.user)
 
         page = self.paginate_queryset(authors)
@@ -134,12 +138,16 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
+    """Теги."""
+
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     pagination_class = None
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
+    """Ингредиенты."""
+
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
@@ -148,6 +156,8 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
+    """Рецепты."""
+
     queryset = Recipe.objects.all()
     pagination_class = RecipePagination
     filter_backends = (DjangoFilterBackend,)
@@ -192,6 +202,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=('post', 'delete'))
     def favorite(self, request, pk=None):
+        """Добавить/удалить рецепт из избранного."""
         recipe = self.get_object()
 
         if request.method == 'POST':
@@ -226,6 +237,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=('post', 'delete'))
     def shopping_cart(self, request, pk=None):
+        """Добавить/удалить рецепт из списка покупок."""
         recipe = self.get_object()
 
         if request.method == 'POST':
@@ -266,6 +278,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=('get',))
     def download_shopping_cart(self, request):
+        """Скачать список покупок.""" 
         ingredients = (
             IngredientInRecipe.objects.filter(
                 recipe__shopping_cart__user=request.user

@@ -121,7 +121,7 @@ class Recipe(models.Model):
 
 
 class IngredientInRecipe(models.Model):
-    """Промежуточная модель ингредиентов."""
+    """Промежуточная модель ингредиентов в рецепте."""
 
     recipe = models.ForeignKey(
         Recipe,

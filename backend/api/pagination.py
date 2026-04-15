@@ -4,7 +4,7 @@ from rest_framework.response import Response
 
 class RecipePagination(PageNumberPagination):
     """
-    Кастомная пагинация проекта Foodgram.
+    Пагинация проекта Foodgram.
 
     Позволяет управлять количеством объектов через параметр `limit`.
     Возвращает ответ в формате, соответствующем документации:
