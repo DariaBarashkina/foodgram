@@ -246,3 +246,47 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             ])
 
         return super().update(instance, validated_data)
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    """Сериализатор для подписок с рецептами."""
+
+    recipes = serializers.SerializerMethodField(read_only=True)
+    recipes_count = serializers.SerializerMethodField(read_only=True)
+    is_subscribed = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'recipes', 'recipes_count', 'is_subscribed', 'avatar'
+        )
+
+    def get_recipes(self, obj):
+        request = self.context.get('request')
+        recipes = obj.recipes.all()
+        recipes_limit = request.query_params.get('recipes_limit')
+
+        if recipes_limit:
+            try:
+                limit = int(recipes_limit)
+                if limit > 0:
+                    recipes = recipes[:limit]
+            except (ValueError, TypeError):
+                pass
+
+        return ShortRecipeSerializer(
+            recipes, many=True, context=self.context
+        ).data
+
+    def get_recipes_count(self, obj):
+        return obj.recipes.count()
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return Subscription.objects.filter(
+            user=request.user, author=obj
+        ).exists()
