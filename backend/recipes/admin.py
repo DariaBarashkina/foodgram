@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.safestring import mark_safe
 
 from .models import (
     Favorite,
@@ -12,9 +13,9 @@ from .models import (
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "slug")
-    search_fields = ("name", "slug")
-    prepopulated_fields = {"slug": ("name",)}
+    list_display = ('id', 'name', 'slug')
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
 
 
 @admin.register(Ingredient)
@@ -32,15 +33,41 @@ class IngredientInRecipeInline(admin.TabularInline):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'author', 'favorites_count')
+    list_display = (
+        'id',
+        'name',
+        'author',
+        'favorites_count',
+        'tags_list',
+        'ingredients_list',
+        'image_preview'
+    )
     list_filter = ('tags',)
     search_fields = ('name', 'author__username')
     inlines = [IngredientInRecipeInline]
 
+    @admin.display(description='В избранном')
     def favorites_count(self, obj):
         return obj.favorites.count()
 
-    favorites_count.short_description = 'В избранном'
+    @admin.display(description='Теги')
+    def tags_list(self, obj):
+        return ', '.join(tag.name for tag in obj.tags.all())
+
+    @admin.display(description='Ингредиенты')
+    def ingredients_list(self, obj):
+        return ', '.join(
+            f"{item.ingredient.name} ({item.amount})"
+            for item in obj.ingredient_in_recipe.all()
+        )
+
+    @admin.display(description='Изображение')
+    def image_preview(self, obj):
+        if obj.image:
+            return mark_safe(
+                f'<img src="{obj.image.url}" width="80" height="60" />'
+            )
+        return '—'
 
 
 @admin.register(Favorite)

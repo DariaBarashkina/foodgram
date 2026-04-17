@@ -19,16 +19,24 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'File not found: {csv_path}'))
             return
 
+        ingredients = []
+
         with open(csv_path, 'r', encoding='utf-8') as file:
             reader = csv.reader(file)
             next(reader)
 
-            for row in reader:
-                if len(row) >= 2:
-                    name, measurement_unit = row[0], row[1]
-                    Ingredient.objects.get_or_create(
-                        name=name, measurement_unit=measurement_unit
+            for name, measurement_unit in reader:
+                ingredients.append(
+                    Ingredient(
+                        name=name,
+                        measurement_unit=measurement_unit
                     )
+                )
+
+        Ingredient.objects.bulk_create(
+            ingredients,
+            ignore_conflicts=True
+        )
 
         self.stdout.write(
             self.style.SUCCESS('Successfully loaded ingredients')
