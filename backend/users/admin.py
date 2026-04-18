@@ -23,8 +23,8 @@ class UserAdmin(BaseUserAdmin):
     def recipes_count(self, obj):
         return obj.recipes.count()
 
-    @admin.display(description='Author subscriptions count')
-    def author_subscriptions_count(self, obj):
+    @admin.display(description='Followers count')
+    def followers_count(self, obj):
         return obj.author_subscriptions.count()
 
 
