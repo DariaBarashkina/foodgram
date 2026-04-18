@@ -1,6 +1,5 @@
 from django_filters import rest_framework as filters
 
-from recipes.constants import TRUE_VALUE
 from recipes.models import Ingredient, Recipe, Tag
 
 
@@ -35,21 +34,15 @@ class RecipeFilter(filters.FilterSet):
     def filter_is_favorited(self, queryset, name, value):
         user = self.request.user
 
-        if not value or not user.is_authenticated:
-            return queryset
-
-        if int(value) == TRUE_VALUE:
+        if value and user.is_authenticated:
             return queryset.filter(favorites__user=user).distinct()
 
-        return queryset.exclude(favorites__user=user).distinct()
+        return queryset
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
         user = self.request.user
 
-        if not value or not user.is_authenticated:
-            return queryset
-
-        if int(value) == TRUE_VALUE:
+        if value and user.is_authenticated:
             return queryset.filter(shopping_cart__user=user).distinct()
 
-        return queryset.exclude(shopping_cart__user=user).distinct()
+        return queryset

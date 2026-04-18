@@ -1,4 +1,5 @@
-from django.db.models import F, Sum
+from django.core.files.base import ContentFile
+from django.db.models import Count, F, Sum
 from django.http import FileResponse
 from django.urls import reverse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,14 +18,17 @@ from recipes.models import (
     Tag,
 )
 from users.models import Subscription, User
+
 from .filters import IngredientFilter, RecipeFilter
 from .pagination import RecipePagination
 from .serializers import (
     AvatarSerializer,
+    FavoriteSerializer,
     IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
-    ShortRecipeSerializer,
+    ShoppingCartSerializer,
+    SubscriptionCreateSerializer,
     SubscriptionSerializer,
     TagSerializer,
     UserSerializer,
@@ -39,9 +43,10 @@ class UserViewSet(DjoserUserViewSet):
     pagination_class = RecipePagination
 
     @action(
-        detail=False, methods=('put',),
+        detail=False,
+        methods=('put',),
         permission_classes=(IsAuthenticated,),
-        url_path='me/avatar'
+        url_path='me/avatar',
     )
     def avatar(self, request):
         serializer = AvatarSerializer(
@@ -59,11 +64,12 @@ class UserViewSet(DjoserUserViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
-        detail=True, methods=('post',),
-        permission_classes=(IsAuthenticated,)
+        detail=True,
+        methods=('post',),
+        permission_classes=(IsAuthenticated,),
     )
     def subscribe(self, request, pk=None):
-        serializer = SubscriptionSerializer(
+        serializer = SubscriptionCreateSerializer(
             data={'user': request.user.id, 'author': pk},
             context={'request': request},
         )
@@ -74,7 +80,8 @@ class UserViewSet(DjoserUserViewSet):
     @subscribe.mapping.delete
     def unsubscribe(self, request, pk=None):
         deleted, _ = Subscription.objects.filter(
-            user=request.user, author_id=pk
+            user=request.user,
+            author_id=pk,
         ).delete()
         return Response(
             status=(
@@ -87,12 +94,14 @@ class UserViewSet(DjoserUserViewSet):
     @action(
         detail=False,
         methods=('get',),
-        permission_classes=(IsAuthenticated,)
+        permission_classes=(IsAuthenticated,),
     )
     def subscriptions(self, request):
         authors = User.objects.filter(
-            followers__user=request.user
-        ).annotate(recipes_count=Sum('recipes__id'))
+            author_subscriptions__user=request.user
+        ).annotate(
+            recipes_count=Count('recipes', distinct=True)
+        ).order_by('username')
 
         page = self.paginate_queryset(authors)
         serializer = SubscriptionSerializer(
@@ -138,21 +147,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def _add_to(self, model, user, recipe):
-        if model.objects.filter(user=user, recipe=recipe).exists():
-            return Response(
-                {'detail': 'Уже добавлено'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        model.objects.create(user=user, recipe=recipe)
-        return Response(
-            ShortRecipeSerializer(recipe).data,
-            status=status.HTTP_201_CREATED,
+    def _add_to(self, serializer_class, request, pk, field_name):
+        serializer = serializer_class(
+            data={'user': request.user.id, field_name: pk},
+            context={'request': request},
         )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def _delete_from(self, model, user, recipe):
+    def _delete_from(self, model, user, pk, field_name):
         deleted, _ = model.objects.filter(
-            user=user, recipe=recipe
+            user=user,
+            **{f'{field_name}_id': pk},
         ).delete()
         return Response(
             status=(
@@ -165,57 +172,66 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=('post',),
-        permission_classes=(IsAuthenticated,)
+        permission_classes=(IsAuthenticated,),
     )
     def favorite(self, request, pk=None):
-        return self._add_to(Favorite, request.user, self.get_object())
+        return self._add_to(FavoriteSerializer, request, pk, 'recipe')
 
     @favorite.mapping.delete
     def delete_favorite(self, request, pk=None):
-        return self._delete_from(Favorite, request.user, self.get_object())
+        return self._delete_from(Favorite, request.user, pk, 'recipe')
 
     @action(
         detail=True,
         methods=('post',),
-        permission_classes=(IsAuthenticated,)
+        permission_classes=(IsAuthenticated,),
     )
     def shopping_cart(self, request, pk=None):
-        return self._add_to(ShoppingCart, request.user, self.get_object())
+        return self._add_to(ShoppingCartSerializer, request, pk, 'recipe')
 
     @shopping_cart.mapping.delete
     def delete_shopping_cart(self, request, pk=None):
-        return self._delete_from(ShoppingCart, request.user, self.get_object())
+        return self._delete_from(ShoppingCart, request.user, pk, 'recipe')
 
     @action(
         detail=True,
         methods=('get',),
-        url_path='get-link'
+        url_path='get-link',
     )
     def get_link(self, request, pk=None):
         url = reverse('recipe-short-link', args=[pk])
         return Response({'short-link': request.build_absolute_uri(url)})
 
-    @action(
-        detail=False,
-        methods=('get',),
-        permission_classes=(IsAuthenticated,)
-    )
-    def download_shopping_cart(self, request):
-        ingredients = IngredientInRecipe.objects.filter(
-            recipe__shopping_cart__user=request.user
+    @staticmethod
+    def get_shopping_ingredients(user):
+        return IngredientInRecipe.objects.filter(
+            recipe__shopping_cart__user=user
         ).values(
             name=F('ingredient__name'),
             unit=F('ingredient__measurement_unit'),
-        ).annotate(total=Sum('amount')).order_by('name')
+        ).annotate(
+            total=Sum('amount')
+        ).order_by('name')
 
-        content = '\n'.join(
+    @staticmethod
+    def build_shopping_list(ingredients):
+        return '\n'.join(
             f"{item['name']} ({item['unit']}) — {item['total']}"
             for item in ingredients
         )
 
+    @action(
+        detail=False,
+        methods=('get',),
+        permission_classes=(IsAuthenticated,),
+    )
+    def download_shopping_cart(self, request):
+        ingredients = self.get_shopping_ingredients(request.user)
+        content = self.build_shopping_list(ingredients)
+
         response = FileResponse(
-            content.encode(),
-            content_type='text/plain'
+            ContentFile(content.encode()),
+            content_type='text/plain',
         )
         response[
             'Content-Disposition'

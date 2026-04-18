@@ -34,30 +34,28 @@ class User(AbstractUser):
 
 
 class Subscription(models.Model):
-    """Модель подписки пользователей."""
-
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='following',
+        related_name='user_subscriptions',
         verbose_name='Подписчик',
     )
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='followers',
+        related_name='author_subscriptions',
         verbose_name='Автор',
     )
 
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
                 fields=('user', 'author'),
                 name='unique_subscription'
-            )
-        ]
+            ),
+        )
 
     def clean(self):
         if self.user == self.author:
