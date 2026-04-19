@@ -8,7 +8,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-
+ы
 from recipes.models import (
     Favorite,
     Ingredient,
@@ -18,7 +18,6 @@ from recipes.models import (
     Tag,
 )
 from users.models import Subscription, User
-
 from .filters import IngredientFilter, RecipeFilter
 from .pagination import RecipePagination
 from .serializers import (
@@ -98,7 +97,7 @@ class UserViewSet(DjoserUserViewSet):
     )
     def subscriptions(self, request):
         authors = User.objects.filter(
-            author_subscriptions__user=request.user
+            subscriptions_to_author__user=request.user
         ).annotate(
             recipes_count=Count('recipes', distinct=True)
         ).order_by('username')
@@ -147,19 +146,19 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    def _add_to(self, serializer_class, request, pk, field_name):
+    def _add_to(self, serializer_class, request, pk):
         serializer = serializer_class(
-            data={'user': request.user.id, field_name: pk},
+            data={'user': request.user.id, 'recipe': pk},
             context={'request': request},
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def _delete_from(self, model, user, pk, field_name):
+    def _delete_from(self, model, user, pk):
         deleted, _ = model.objects.filter(
             user=user,
-            **{f'{field_name}_id': pk},
+            recipe_id=pk,
         ).delete()
         return Response(
             status=(
@@ -175,11 +174,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,),
     )
     def favorite(self, request, pk=None):
-        return self._add_to(FavoriteSerializer, request, pk, 'recipe')
+        return self._add_to(FavoriteSerializer, request, pk)
 
     @favorite.mapping.delete
     def delete_favorite(self, request, pk=None):
-        return self._delete_from(Favorite, request.user, pk, 'recipe')
+        return self._delete_from(Favorite, request.user, pk)
 
     @action(
         detail=True,
@@ -187,11 +186,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,),
     )
     def shopping_cart(self, request, pk=None):
-        return self._add_to(ShoppingCartSerializer, request, pk, 'recipe')
+        return self._add_to(ShoppingCartSerializer, request, pk)
 
     @shopping_cart.mapping.delete
     def delete_shopping_cart(self, request, pk=None):
-        return self._delete_from(ShoppingCart, request.user, pk, 'recipe')
+        return self._delete_from(ShoppingCart, request.user, pk)
 
     @action(
         detail=True,
@@ -201,17 +200,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_link(self, request, pk=None):
         url = reverse('recipe-short-link', args=[pk])
         return Response({'short-link': request.build_absolute_uri(url)})
-
-    @staticmethod
-    def get_shopping_ingredients(user):
-        return IngredientInRecipe.objects.filter(
-            recipe__shopping_cart__user=user
-        ).values(
-            name=F('ingredient__name'),
-            unit=F('ingredient__measurement_unit'),
-        ).annotate(
-            total=Sum('amount')
-        ).order_by('name')
 
     @staticmethod
     def build_shopping_list(ingredients):
@@ -226,14 +214,22 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=(IsAuthenticated,),
     )
     def download_shopping_cart(self, request):
-        ingredients = self.get_shopping_ingredients(request.user)
+        ingredients = IngredientInRecipe.objects.filter(
+            recipe__shopping_cart__user=request.user
+        ).values(
+            name=F('ingredient__name'),
+            unit=F('ingredient__measurement_unit'),
+        ).annotate(
+            total=Sum('amount')
+        ).order_by('name')
+
         content = self.build_shopping_list(ingredients)
 
         response = FileResponse(
             ContentFile(content.encode()),
             content_type='text/plain',
         )
-        response[
-            'Content-Disposition'
-        ] = 'attachment; filename="shopping_list.txt"'
+        response['Content-Disposition'] = (
+            'attachment; filename="shopping_list.txt"'
+        )
         return response
