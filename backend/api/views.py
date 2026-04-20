@@ -40,6 +40,7 @@ class UserViewSet(DjoserUserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     pagination_class = RecipePagination
+    lookup_field = 'pk'
 
     @action(
         detail=False,
@@ -192,14 +193,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def delete_shopping_cart(self, request, pk=None):
         return self._delete_from(ShoppingCart, request.user, pk)
 
-    @action(
-        detail=True,
-        methods=('get',),
-        url_path='get-link',
-    )
+    @action(detail=True, methods=('get',), url_path='get-link')
     def get_link(self, request, pk=None):
-        url = reverse('recipe-short-link', args=[pk])
-        return Response({'short-link': request.build_absolute_uri(url)})
+        recipe = self.get_object()
+        # Получаем относительный URL по имени
+        relative_url = reverse('short-link', args=[recipe.short_code])
+        # Добавляем домен и протокол
+        absolute_url = request.build_absolute_uri(relative_url)
+        return Response({'short-link': absolute_url})
 
     @staticmethod
     def build_shopping_list(ingredients):
